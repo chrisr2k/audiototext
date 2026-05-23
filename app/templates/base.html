@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AudioToText{% endblock %} - OCI Speech Transcription</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --primary-light: #dbeafe;
+            --success: #16a34a;
+            --success-light: #dcfce7;
+            --danger: #dc2626;
+            --danger-light: #fee2e2;
+            --warning: #f59e0b;
+            --warning-light: #fef3c7;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --radius: 8px;
+            --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--gray-50);
+            color: var(--gray-900);
+            min-height: 100vh;
+        }
+
+        .navbar {
+            background: white;
+            border-bottom: 1px solid var(--gray-200);
+            padding: 0 24px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: var(--shadow);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .navbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: var(--gray-900);
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .navbar-brand svg {
+            width: 32px;
+            height: 32px;
+            color: var(--primary);
+        }
+
+        .navbar-nav {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-link {
+            padding: 8px 16px;
+            text-decoration: none;
+            color: var(--gray-600);
+            border-radius: var(--radius);
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.15s ease;
+        }
+
+        .nav-link:hover {
+            background: var(--gray-100);
+            color: var(--gray-900);
+        }
+
+        .nav-link.active {
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 4px 12px 4px 4px;
+            background: var(--gray-100);
+            border-radius: 999px;
+        }
+
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .user-name {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--gray-700);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        .card {
+            background: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            border: 1px solid var(--gray-200);
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--gray-200);
+            background: var(--gray-50);
+        }
+
+        .card-header h2 {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--gray-900);
+        }
+
+        .card-body {
+            padding: 24px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: var(--radius);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #15803d;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #b91c1c;
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--gray-600);
+            border: 1px solid var(--gray-300);
+        }
+
+        .btn-outline:hover {
+            background: var(--gray-100);
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 13px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--gray-700);
+            margin-bottom: 6px;
+        }
+
+        .form-input, .form-select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--gray-300);
+            border-radius: var(--radius);
+            font-size: 14px;
+            color: var(--gray-900);
+            background: white;
+            transition: border-color 0.15s ease;
+        }
+
+        .form-input:focus, .form-select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: var(--radius);
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+
+        .alert-info {
+            background: var(--primary-light);
+            color: var(--primary-dark);
+            border: 1px solid #bfdbfe;
+        }
+
+        .alert-success {
+            background: var(--success-light);
+            color: #15803d;
+            border: 1px solid #bbf7d0;
+        }
+
+        .alert-danger {
+            background: var(--danger-light);
+            color: #b91c1c;
+            border: 1px solid #fecaca;
+        }
+
+        .alert-warning {
+            background: var(--warning-light);
+            color: #92400e;
+            border: 1px solid #fde68a;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .badge-success {
+            background: var(--success-light);
+            color: var(--success);
+        }
+
+        .badge-warning {
+            background: var(--warning-light);
+            color: var(--warning);
+        }
+
+        .badge-danger {
+            background: var(--danger-light);
+            color: var(--danger);
+        }
+
+        .badge-info {
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--gray-200);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .text-muted {
+            color: var(--gray-500);
+            font-size: 14px;
+        }
+
+        .text-center { text-align: center; }
+        .mt-2 { margin-top: 8px; }
+        .mt-4 { margin-top: 16px; }
+        .mb-2 { margin-bottom: 8px; }
+        .mb-4 { margin-bottom: 16px; }
+        .gap-2 { gap: 8px; }
+        .flex { display: flex; }
+        .flex-col { flex-direction: column; }
+        .items-center { align-items: center; }
+        .justify-between { justify-content: space-between; }
+        .justify-center { justify-content: center; }
+
+        .demo-banner {
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            border: 1px solid #f59e0b;
+            color: #92400e;
+            padding: 8px 16px;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        @media (max-width: 768px) {
+            .container { padding: 16px; }
+            .navbar { padding: 0 16px; }
+            .user-name { display: none; }
+        }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    {% if demo_mode %}
+    <div class="demo-banner">
+        🔧 DEMO MODE - Using simulated transcription. Configure OCI credentials in .env for real transcription.
+    </div>
+    {% endif %}
+
+    <nav class="navbar">
+        <a href="/transcribe/" class="navbar-brand">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                <line x1="12" y1="19" x2="12" y2="23"/>
+                <line x1="8" y1="23" x2="16" y2="23"/>
+            </svg>
+            AudioToText
+        </a>
+        <div class="navbar-nav">
+            <a href="/transcribe/" class="nav-link {% if request.url.path == '/transcribe/' %}active{% endif %}">
+                Transcribe
+            </a>
+            <a href="/history/" class="nav-link {% if request.url.path == '/history/' %}active{% endif %}">
+                History
+            </a>
+            {% if user and user.is_admin %}
+            <a href="/admin/users" class="nav-link {% if request.url.path == '/admin/users' %}active{% endif %}">
+                👑 Admin
+            </a>
+            {% endif %}
+            {% if user %}
+            <div class="user-info">
+                <div class="user-avatar">{{ user.username[0]|upper }}</div>
+                <span class="user-name">{{ user.username }}</span>
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="logout()">Logout</button>
+            {% endif %}
+        </div>
+    </nav>
+
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <script>
+        // Store auth token
+        function getToken() {
+            return localStorage.getItem('auth_token');
+        }
+
+        function setToken(token) {
+            localStorage.setItem('auth_token', token);
+        }
+
+        function clearToken() {
+            localStorage.removeItem('auth_token');
+        }
+
+        function logout() {
+            clearToken();
+            window.location.href = '/auth/login';
+        }
+
+        // Add token to navigation links so the server can identify the user
+        function addTokenToNavLinks() {
+            const token = getToken();
+            if (!token) return;
+            // Add token to all nav links including the brand/home link
+            document.querySelectorAll('.navbar a').forEach(function(link) {
+                const url = new URL(link.href, window.location.origin);
+                // Only add token to internal links
+                if (url.origin === window.location.origin && !url.searchParams.has('token')) {
+                    url.searchParams.set('token', token);
+                    link.href = url.toString();
+                }
+            });
+        }
+
+        // Add token to download links so they work when clicked directly
+        function addTokenToDownloadLinks() {
+            const token = getToken();
+            if (!token) return;
+            document.querySelectorAll('.download-link').forEach(function(link) {
+                const url = new URL(link.href, window.location.origin);
+                if (!url.searchParams.has('token')) {
+                    url.searchParams.set('token', token);
+                    link.href = url.toString();
+                }
+            });
+        }
+
+        // Fetch current user info and update navbar
+        async function updateNavbar() {
+            const token = getToken();
+            if (!token) return;
+            
+            // Check if user info is already rendered server-side
+            if (document.querySelector('.user-info')) return;
+            
+            try {
+                const response = await fetch('/auth/me', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!response.ok) return;
+                
+                const user = await response.json();
+                const nav = document.querySelector('.navbar-nav');
+                if (!nav) return;
+                
+                // Create admin link if user is admin
+                if (user.is_admin) {
+                    const adminLink = document.createElement('a');
+                    adminLink.href = '/admin/users?token=' + encodeURIComponent(token);
+                    adminLink.className = 'nav-link';
+                    adminLink.textContent = '👑 Admin';
+                    nav.appendChild(adminLink);
+                }
+                
+                // Create user info section
+                const userInfo = document.createElement('div');
+                userInfo.className = 'user-info';
+                userInfo.innerHTML = '<div class="user-avatar">' + user.username.charAt(0).toUpperCase() + '</div>' +
+                    '<span class="user-name">' + user.username + '</span>';
+                nav.appendChild(userInfo);
+                
+                // Create logout button
+                const logoutBtn = document.createElement('button');
+                logoutBtn.className = 'btn btn-outline btn-sm';
+                logoutBtn.textContent = 'Logout';
+                logoutBtn.onclick = logout;
+                nav.appendChild(logoutBtn);
+            } catch (e) {
+                console.error('Failed to fetch user info:', e);
+            }
+        }
+
+        // Check if user is authenticated on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            addTokenToNavLinks();
+            addTokenToDownloadLinks();
+            updateNavbar();
+            const token = getToken();
+            const isAuthPage = window.location.pathname.includes('/auth/');
+            const isLoggedIn = document.querySelector('.user-info') !== null;
+
+            if (!token && !isAuthPage && !isLoggedIn) {
+                window.location.href = '/auth/login';
+            }
+        });
+
+        // Helper for API calls
+        async function apiCall(url, options = {}) {
+            const token = getToken();
+            const headers = {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+                ...options.headers,
+            };
+
+            // Don't set Content-Type for FormData
+            if (options.body instanceof FormData) {
+                delete headers['Content-Type'];
+            }
+
+            const response = await fetch(url, {
+                ...options,
+                headers,
+            });
+
+            if (response.status === 401) {
+                clearToken();
+                window.location.href = '/auth/login';
+                return null;
+            }
+
+            return response;
+        }
+    </script>
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

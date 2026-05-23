@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}Admin - User Management{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-bottom: 24px;">
+    <div class="card-header flex items-center justify-between">
+        <h2>👑 User Management</h2>
+        <span class="badge badge-info">{{ users|length }} user(s)</span>
+    </div>
+    <div class="card-body">
+        {% if demo_mode %}
+        <div class="alert alert-warning mb-4">
+            <strong>🔧 Demo Mode</strong> - User management is fully functional in demo mode.
+        </div>
+        {% endif %}
+
+        <!-- Create User Form -->
+        <div style="margin-bottom: 24px; padding: 16px; background: var(--gray-50); border-radius: var(--radius); border: 1px solid var(--gray-200);">
+            <h3 style="font-size: 15px; font-weight: 600; margin-bottom: 12px;">➕ Create New User</h3>
+            <form action="/admin/users/create" method="POST" style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;">
+                <input type="hidden" name="token" value="{{ request.query_params.get('token', '') }}">
+                <div class="form-group" style="flex: 1; min-width: 150px; margin-bottom: 0;">
+                    <label class="form-label" for="new-username">Username</label>
+                    <input type="text" id="new-username" name="username" class="form-input" placeholder="Username" required>
+                </div>
+                <div class="form-group" style="flex: 1; min-width: 200px; margin-bottom: 0;">
+                    <label class="form-label" for="new-email">Email</label>
+                    <input type="email" id="new-email" name="email" class="form-input" placeholder="Email" required>
+                </div>
+                <div class="form-group" style="flex: 1; min-width: 150px; margin-bottom: 0;">
+                    <label class="form-label" for="new-password">Password</label>
+                    <input type="password" id="new-password" name="password" class="form-input" placeholder="Min 6 chars" required minlength="6">
+                </div>
+                <button type="submit" class="btn btn-primary" style="margin-bottom: 1px;">Create User</button>
+            </form>
+        </div>
+
+        <!-- Users Table -->
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                <thead>
+                    <tr style="background: var(--gray-50); border-bottom: 2px solid var(--gray-200);">
+                        <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: var(--gray-700);">Username</th>
+                        <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: var(--gray-700);">Email</th>
+                        <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: var(--gray-700);">Created</th>
+                        <th style="padding: 10px 12px; text-align: center; font-weight: 600; color: var(--gray-700);">Active</th>
+                        <th style="padding: 10px 12px; text-align: center; font-weight: 600; color: var(--gray-700);">Admin</th>
+                        <th style="padding: 10px 12px; text-align: center; font-weight: 600; color: var(--gray-700);">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in users %}
+                    <tr style="border-bottom: 1px solid var(--gray-200);">
+                        <td style="padding: 10px 12px; font-weight: 500;">
+                            {{ u.username }}
+                            {% if u.id == user.id %}
+                            <span class="badge badge-info" style="margin-left: 6px; font-size: 11px;">You</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 10px 12px; color: var(--gray-600);">{{ u.email }}</td>
+                        <td style="padding: 10px 12px; color: var(--gray-500); font-size: 13px;">
+                            {{ u.created_at.strftime('%Y-%m-%d') if u.created_at else 'N/A' }}
+                        </td>
+                        <td style="padding: 10px 12px; text-align: center;">
+                            {% if u.is_active %}
+                            <span class="badge badge-success">Active</span>
+                            {% else %}
+                            <span class="badge badge-danger">Disabled</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 10px 12px; text-align: center;">
+                            {% if u.is_admin %}
+                            <span class="badge badge-info">Admin</span>
+                            {% else %}
+                            <span class="badge" style="background: var(--gray-100); color: var(--gray-500);">User</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 10px 12px; text-align: center;">
+                            <div style="display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;">
+                                {% if u.id != user.id %}
+                                <form action="/admin/users/{{ u.id }}/toggle-active" method="POST" style="display: inline;">
+                                    <input type="hidden" name="token" value="{{ request.query_params.get('token', '') }}">
+                                    <button type="submit" class="btn btn-sm {% if u.is_active %}btn-outline{% else %}btn-success{% endif %}"
+                                            title="{% if u.is_active %}Disable user{% else %}Enable user{% endif %}">
+                                        {% if u.is_active %}🔒 Disable{% else %}🔓 Enable{% endif %}
+                                    </button>
+                                </form>
+                                <form action="/admin/users/{{ u.id }}/toggle-admin" method="POST" style="display: inline;">
+                                    <input type="hidden" name="token" value="{{ request.query_params.get('token', '') }}">
+                                    <button type="submit" class="btn btn-sm btn-outline"
+                                            title="{% if u.is_admin %}Remove admin{% else %}Make admin{% endif %}">
+                                        {% if u.is_admin %}👤 Demote{% else %}👑 Promote{% endif %}
+                                    </button>
+                                </form>
+                                <form action="/admin/users/{{ u.id }}/delete" method="POST" style="display: inline;"
+                                      onsubmit="return confirm('Delete user &#34;{{ u.username }}&#34;? This will also delete all their transcripts. This cannot be undone.');">
+                                    <input type="hidden" name="token" value="{{ request.query_params.get('token', '') }}">
+                                    <button type="submit" class="btn btn-sm btn-danger">🗑️ Delete</button>
+                                </form>
+                                {% else %}
+                                <span class="text-muted" style="font-size: 13px;">—</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if not users %}
+        <div class="text-center" style="padding: 32px; color: var(--gray-500);">
+            No users found.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

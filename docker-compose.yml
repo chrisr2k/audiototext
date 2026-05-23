@@ -1,0 +1,104 @@
+# ============================================================
+# AudioToText - Docker Compose for OCI Deployment
+# ============================================================
+# Usage:
+#   docker compose up -d                    # Start all services
+#   docker compose logs -f                  # Follow logs
+#   docker compose down                     # Stop all services
+#   docker compose exec app python -m app.create_admin  # Create admin user
+# ============================================================
+
+version: "3.8"
+
+services:
+  # ---- PostgreSQL Database ----
+  db:
+    image: postgres:16-alpine
+    container_name: audiototext-db
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-audiototext}
+      POSTGRES_USER: ${POSTGRES_USER:-audiototext}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-audiototext} -d ${POSTGRES_DB:-audiototext}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - audiototext-network
+
+  # ---- FastAPI Application ----
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: audiototext-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    volumes:
+      - uploads_data:/app/uploads
+    environment:
+      # Database
+      DATABASE_URL: postgresql://${POSTGRES_USER:-audiototext}:${POSTGRES_PASSWORD:-changeme}@db:5432/${POSTGRES_DB:-audiototext}
+
+      # OCI Credentials
+      OCI_USER_OCID: ${OCI_USER_OCID:-}
+      OCI_TENANCY_OCID: ${OCI_TENANCY_OCID:-}
+      OCI_FINGERPRINT: ${OCI_FINGERPRINT:-}
+      OCI_PRIVATE_KEY: ${OCI_PRIVATE_KEY:-}
+      OCI_REGION: ${OCI_REGION:-us-ashburn-1}
+      OCI_NAMESPACE: ${OCI_NAMESPACE:-}
+      OCI_BUCKET: ${OCI_BUCKET:-}
+
+      # App Settings
+      SECRET_KEY: ${SECRET_KEY:-change-this-to-a-random-secret-key}
+      DEMO_MODE: ${DEMO_MODE:-false}
+
+      # Admin User (created on first startup)
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+
+      # Uvicorn
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-4}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    networks:
+      - audiototext-network
+
+  # ---- Nginx Reverse Proxy ----
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: audiototext-nginx
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - nginx_logs:/var/log/nginx
+      # Uncomment and configure for SSL:
+      # - /etc/letsencrypt:/etc/letsencrypt:ro
+    networks:
+      - audiototext-network
+
+networks:
+  audiototext-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  uploads_data:
+    driver: local
+  nginx_logs:
+    driver: local

@@ -1,0 +1,44 @@
+# ============================================================
+# AudioToText - Git Ignore
+# ============================================================
+
+# Environment files (contain secrets)
+.env
+.env.local
+
+# Database files (SQLite - not for production)
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploaded audio files
+uploads/*
+!uploads/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test artifacts
+test_audio.wav
+login.json
+
+# Docker
+.dockerignore

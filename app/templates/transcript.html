@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+
+{% block title %}Transcript Details{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-bottom: 24px;">
+    <div class="card-header flex items-center justify-between">
+        <div>
+            <h2>{{ transcript.filename }}</h2>
+            <p class="text-muted" style="margin-top: 4px; font-size: 13px;">
+                Created: {{ transcript.created_at }}
+            </p>
+        </div>
+        <div class="flex gap-2" style="flex-wrap: wrap;">
+            <button class="btn btn-outline btn-sm" onclick="copyText()">📋 Copy</button>
+            <a href="/history/{{ transcript.id }}/download?format=pdf_speaker" class="btn btn-outline btn-sm download-link">🎤 Speaker PDF</a>
+            <a href="/history/{{ transcript.id }}/download?format=pdf_timed" class="btn btn-outline btn-sm download-link">⏱️ Timed PDF</a>
+            <a href="/history/{{ transcript.id }}/download?format=txt" class="btn btn-outline btn-sm download-link">📄 TXT</a>
+            <a href="/history/{{ transcript.id }}/download?format=srt" class="btn btn-outline btn-sm download-link">🎬 SRT</a>
+            <a href="/history/" class="btn btn-outline btn-sm">← Back</a>
+        </div>
+    </div>
+    <div class="card-body">
+        <!-- Metadata -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+            <div style="padding: 12px; background: var(--gray-50); border-radius: var(--radius); border: 1px solid var(--gray-200);">
+                <div class="text-muted" style="font-size: 12px; text-transform: uppercase; font-weight: 600;">Status</div>
+                <div style="margin-top: 4px;">
+                    {% if transcript.status == 'completed' %}
+                    <span class="badge badge-success">Completed</span>
+                    {% elif transcript.status == 'processing' %}
+                    <span class="badge badge-info">Processing</span>
+                    {% elif transcript.status == 'failed' %}
+                    <span class="badge badge-danger">Failed</span>
+                    {% else %}
+                    <span class="badge badge-warning">{{ transcript.status }}</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div style="padding: 12px; background: var(--gray-50); border-radius: var(--radius); border: 1px solid var(--gray-200);">
+                <div class="text-muted" style="font-size: 12px; text-transform: uppercase; font-weight: 600;">Language</div>
+                <div style="margin-top: 4px; font-weight: 500;">{{ transcript.language }}</div>
+            </div>
+
+            {% if transcript.confidence %}
+            <div style="padding: 12px; background: var(--gray-50); border-radius: var(--radius); border: 1px solid var(--gray-200);">
+                <div class="text-muted" style="font-size: 12px; text-transform: uppercase; font-weight: 600;">Confidence</div>
+                <div style="margin-top: 4px; font-weight: 500;">{{ "%.1f"|format(transcript.confidence * 100) }}%</div>
+            </div>
+            {% endif %}
+
+            {% if transcript.duration_seconds %}
+            <div style="padding: 12px; background: var(--gray-50); border-radius: var(--radius); border: 1px solid var(--gray-200);">
+                <div class="text-muted" style="font-size: 12px; text-transform: uppercase; font-weight: 600;">Duration</div>
+                <div style="margin-top: 4px; font-weight: 500;">
+                    {% set mins = transcript.duration_seconds // 60 %}
+                    {% set secs = transcript.duration_seconds % 60 %}
+                    {{ "%dm %ds"|format(mins|int, secs|int) }}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if transcript.file_size %}
+            <div style="padding: 12px; background: var(--gray-50); border-radius: var(--radius); border: 1px solid var(--gray-200);">
+                <div class="text-muted" style="font-size: 12px; text-transform: uppercase; font-weight: 600;">File Size</div>
+                <div style="margin-top: 4px; font-weight: 500;">
+                    {% if transcript.file_size < 1024 %}
+                        {{ transcript.file_size }} B
+                    {% elif transcript.file_size < 1024*1024 %}
+                        {{ "%.1f"|format(transcript.file_size / 1024) }} KB
+                    {% else %}
+                        {{ "%.1f"|format(transcript.file_size / (1024*1024)) }} MB
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if transcript.oci_job_id %}
+            <div style="padding: 12px; background: var(--gray-50); border-radius: var(--radius); border: 1px solid var(--gray-200);">
+                <div class="text-muted" style="font-size: 12px; text-transform: uppercase; font-weight: 600;">OCI Job ID</div>
+                <div style="margin-top: 4px; font-weight: 500; font-size: 11px; word-break: break-all;">{{ transcript.oci_job_id }}</div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Transcript Text -->
+        {% if transcript.text %}
+        <div>
+            <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 12px;">Transcribed Text</h3>
+
+            <!-- View Toggle -->
+            {% if transcript.speakers and transcript.speakers|length > 0 %}
+            <div style="margin-bottom: 12px; display: flex; gap: 8px;">
+                <button id="view-full" class="btn btn-primary btn-sm" onclick="showView('full')">Full Text</button>
+                <button id="view-speakers" class="btn btn-outline btn-sm" onclick="showView('speakers')">Speaker View</button>
+            </div>
+            {% endif %}
+
+            <!-- Full Text View -->
+            <div id="transcript-full" style="padding: 20px; background: var(--gray-50); border-radius: var(--radius);
+                        border: 1px solid var(--gray-200); font-size: 15px; line-height: 1.8; white-space: pre-wrap;">
+                {{ transcript.text }}
+            </div>
+
+            <!-- Speaker View (hidden by default) -->
+            {% if transcript.speakers and transcript.speakers|length > 0 %}
+            <div id="transcript-speakers" style="display: none;">
+                {% set colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'] %}
+                {% for segment in transcript.speakers %}
+                {% set speaker_num = segment.speaker.replace('speaker_', '')|int %}
+                {% set color = colors[speaker_num % 5] %}
+                <div style="padding: 12px 16px; margin-bottom: 8px; border-radius: var(--radius);
+                            border-left: 4px solid {{ color }};
+                            background: var(--gray-50); border: 1px solid var(--gray-200); border-left-width: 4px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+                        <div style="font-size: 12px; font-weight: 600; color: {{ color }};
+                                    text-transform: uppercase;">
+                            {{ segment.speaker.replace('_', ' ').title() }}
+                        </div>
+                        {% if segment.start_time %}
+                        <div style="font-size: 11px; color: var(--gray-500); font-family: monospace;">
+                            {{ segment.start_time.replace('s', '')|format_timestamp }} - {{ segment.end_time.replace('s', '')|format_timestamp }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div style="font-size: 15px; line-height: 1.7;">{{ segment.text }}</div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <script>
+            function showView(view) {
+                const fullEl = document.getElementById('transcript-full');
+                const speakersEl = document.getElementById('transcript-speakers');
+                const btnFull = document.getElementById('view-full');
+                const btnSpeakers = document.getElementById('view-speakers');
+
+                if (view === 'full') {
+                    fullEl.style.display = 'block';
+                    if (speakersEl) speakersEl.style.display = 'none';
+                    btnFull.className = 'btn btn-primary btn-sm';
+                    if (btnSpeakers) btnSpeakers.className = 'btn btn-outline btn-sm';
+                } else {
+                    fullEl.style.display = 'none';
+                    if (speakersEl) speakersEl.style.display = 'block';
+                    btnFull.className = 'btn btn-outline btn-sm';
+                    if (btnSpeakers) btnSpeakers.className = 'btn btn-primary btn-sm';
+                }
+            }
+        </script>
+        {% elif transcript.status == 'failed' %}
+        <div class="alert alert-danger">
+            <strong>Transcription Failed</strong>
+            <p style="margin-top: 8px;">{{ transcript.error_message or 'An unknown error occurred during transcription.' }}</p>
+        </div>
+        {% elif transcript.status == 'processing' or transcript.status == 'pending' %}
+        <div class="flex items-center justify-center" style="padding: 48px;">
+            <span class="loading-spinner" style="width: 32px; height: 32px; border-width: 3px;"></span>
+            <span style="margin-left: 12px; font-size: 16px; color: var(--gray-600);">Transcription in progress...</span>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    function copyText() {
+        const fullEl = document.getElementById('transcript-full');
+        const speakersEl = document.getElementById('transcript-speakers');
+        let text = '';
+        if (fullEl && fullEl.style.display !== 'none') {
+            text = fullEl.textContent;
+        } else if (speakersEl && speakersEl.style.display !== 'none') {
+            text = speakersEl.textContent;
+        } else if (fullEl) {
+            text = fullEl.textContent;
+        }
+        if (text) {
+            navigator.clipboard.writeText(text.trim()).then(() => {
+                alert('Text copied to clipboard!');
+            });
+        }
+    }
+
+    // Auto-refresh page if transcript is still processing
+    {% if transcript.status == 'processing' or transcript.status == 'pending' %}
+    (function() {
+        const statusEl = document.querySelector('.badge-info');
+        if (statusEl) {
+            statusEl.innerHTML = 'Processing <span class="loading-spinner" style="display: inline-block; width: 12px; height: 12px; border-width: 2px; margin-left: 4px; vertical-align: middle;"></span>';
+        }
+        setTimeout(function() {
+            location.reload();
+        }, 10000); // Refresh every 10 seconds
+    })();
+    {% endif %}
+</script>
+{% endblock %}

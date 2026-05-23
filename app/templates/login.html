@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}Login{% endblock %}
+
+{% block content %}
+<div class="flex justify-center" style="margin-top: 60px;">
+    <div class="card" style="width: 100%; max-width: 420px;">
+        <div class="card-header text-center">
+            <h2>Welcome Back</h2>
+            <p class="text-muted mt-2">Sign in to your account to continue</p>
+        </div>
+        <div class="card-body">
+            <div id="error-message" class="alert alert-danger" style="display: none;"></div>
+
+            <form id="login-form" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label class="form-label" for="username">Username or Email</label>
+                    <input type="text" id="username" class="form-input" placeholder="Enter your username or email" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="password">Password</label>
+                    <input type="password" id="password" class="form-input" placeholder="Enter your password" required>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 8px;" id="login-btn">
+                    Sign In
+                </button>
+            </form>
+
+            <div class="text-center mt-4">
+                <p class="text-muted">
+                    Accounts are managed by administrators.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function handleLogin(event) {
+        event.preventDefault();
+        const btn = document.getElementById('login-btn');
+        const errorDiv = document.getElementById('error-message');
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="loading-spinner"></span> Signing in...';
+        errorDiv.style.display = 'none';
+
+        try {
+            const response = await fetch('/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username: document.getElementById('username').value,
+                    password: document.getElementById('password').value,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.detail || 'Login failed');
+            }
+
+            setToken(data.access_token);
+            window.location.href = '/transcribe/?token=' + encodeURIComponent(data.access_token);
+        } catch (error) {
+            errorDiv.textContent = error.message;
+            errorDiv.style.display = 'block';
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Sign In';
+        }
+    }
+</script>
+{% endblock %}

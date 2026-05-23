@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Register{% endblock %}
+
+{% block content %}
+<div class="flex justify-center" style="margin-top: 60px;">
+    <div class="card" style="width: 100%; max-width: 420px;">
+        <div class="card-header text-center">
+            <h2>Create Account</h2>
+            <p class="text-muted mt-2">Sign up to start transcribing audio</p>
+        </div>
+        <div class="card-body">
+            <div id="error-message" class="alert alert-danger" style="display: none;"></div>
+
+            <form id="register-form" onsubmit="handleRegister(event)">
+                <div class="form-group">
+                    <label class="form-label" for="username">Username</label>
+                    <input type="text" id="username" class="form-input" placeholder="Choose a username" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="email">Email</label>
+                    <input type="email" id="email" class="form-input" placeholder="Enter your email" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="password">Password</label>
+                    <input type="password" id="password" class="form-input" placeholder="At least 6 characters" required minlength="6">
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 8px;" id="register-btn">
+                    Create Account
+                </button>
+            </form>
+
+            <div class="text-center mt-4">
+                <p class="text-muted">
+                    Already have an account?
+                    <a href="/auth/login" style="color: var(--primary); text-decoration: none; font-weight: 500;">
+                        Sign in
+                    </a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function handleRegister(event) {
+        event.preventDefault();
+        const btn = document.getElementById('register-btn');
+        const errorDiv = document.getElementById('error-message');
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="loading-spinner"></span> Creating account...';
+        errorDiv.style.display = 'none';
+
+        try {
+            const response = await fetch('/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username: document.getElementById('username').value,
+                    email: document.getElementById('email').value,
+                    password: document.getElementById('password').value,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.detail || 'Registration failed');
+            }
+
+            setToken(data.access_token);
+            window.location.href = '/transcribe/';
+        } catch (error) {
+            errorDiv.textContent = error.message;
+            errorDiv.style.display = 'block';
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Create Account';
+        }
+    }
+</script>
+{% endblock %}

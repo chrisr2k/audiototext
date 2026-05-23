@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+
+{% block title %}Transcript History{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header flex items-center justify-between">
+        <h2>Transcript History</h2>
+        <a href="/transcribe/" class="btn btn-primary btn-sm">+ New Transcription</a>
+    </div>
+    <div class="card-body">
+        <div id="loading" class="flex items-center justify-center" style="padding: 48px;">
+            <span class="loading-spinner" style="width: 32px; height: 32px; border-width: 3px;"></span>
+        </div>
+
+        <div id="empty-state" style="display: none;" class="text-center" style="padding: 48px;">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--gray-300)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+                <polyline points="10 9 9 9 8 9"/>
+            </svg>
+            <p style="margin-top: 16px; font-size: 16px; font-weight: 500; color: var(--gray-600);">No transcripts yet</p>
+            <p class="text-muted" style="margin-top: 8px;">Upload an audio file to get started</p>
+            <a href="/transcribe/" class="btn btn-primary" style="margin-top: 16px;">Upload Audio</a>
+        </div>
+
+        <div id="transcripts-list" style="display: none;">
+            <div class="table-container" style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--gray-200);">
+                            <th style="text-align: left; padding: 12px 16px; font-size: 13px; font-weight: 600; color: var(--gray-500); text-transform: uppercase;">File</th>
+                            <th style="text-align: left; padding: 12px 16px; font-size: 13px; font-weight: 600; color: var(--gray-500); text-transform: uppercase;">Language</th>
+                            <th style="text-align: left; padding: 12px 16px; font-size: 13px; font-weight: 600; color: var(--gray-500); text-transform: uppercase;">Status</th>
+                            <th style="text-align: left; padding: 12px 16px; font-size: 13px; font-weight: 600; color: var(--gray-500); text-transform: uppercase;">Date</th>
+                            <th style="text-align: right; padding: 12px 16px; font-size: 13px; font-weight: 600; color: var(--gray-500); text-transform: uppercase;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transcripts-tbody">
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="pagination" class="flex items-center justify-between" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--gray-200);">
+                <span id="pagination-info" class="text-muted"></span>
+                <div class="flex gap-2">
+                    <button id="prev-page" class="btn btn-outline btn-sm" onclick="changePage(-1)" disabled>Previous</button>
+                    <button id="next-page" class="btn btn-outline btn-sm" onclick="changePage(1)">Next</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentPage = 1;
+    let totalPages = 1;
+
+    document.addEventListener('DOMContentLoaded', loadTranscripts);
+
+    async function loadTranscripts() {
+        document.getElementById('loading').style.display = 'flex';
+        document.getElementById('empty-state').style.display = 'none';
+        document.getElementById('transcripts-list').style.display = 'none';
+
+        try {
+            const response = await apiCall(`/history/list?page=${currentPage}&per_page=20`);
+            if (!response) return;
+            const data = await response.json();
+
+            if (data.transcripts.length === 0) {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('empty-state').style.display = 'block';
+                return;
+            }
+
+            totalPages = data.total_pages;
+            renderTranscripts(data.transcripts);
+            updatePagination(data);
+        } catch (error) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('transcripts-list').style.display = 'block';
+            document.getElementById('transcripts-tbody').innerHTML = `
+                <tr>
+                    <td colspan="5" class="text-center" style="padding: 24px; color: var(--gray-500);">
+                        Failed to load transcripts. Please try again.
+                    </td>
+                </tr>
+            `;
+        }
+    }
+
+    let pollInterval = null;
+
+    function renderTranscripts(transcripts) {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('transcripts-list').style.display = 'block';
+
+        const tbody = document.getElementById('transcripts-tbody');
+        tbody.innerHTML = transcripts.map(t => {
+            const date = new Date(t.created_at).toLocaleDateString('en-US', {
+                year: 'numeric', month: 'short', day: 'numeric',
+                hour: '2-digit', minute: '2-digit'
+            });
+
+            const statusBadge = {
+                'completed': '<span class="badge badge-success">Completed</span>',
+                'processing': '<span class="badge badge-info">Processing <span class="loading-spinner" style="display: inline-block; width: 12px; height: 12px; border-width: 2px; margin-left: 4px; vertical-align: middle;"></span></span>',
+                'pending': '<span class="badge badge-warning">Pending</span>',
+                'failed': '<span class="badge badge-danger">Failed</span>',
+            }[t.status] || `<span class="badge badge-info">${t.status}</span>`;
+
+            const preview = t.text ? t.text.substring(0, 80) + (t.text.length > 80 ? '...' : '') : '';
+
+            return `
+                <tr style="border-bottom: 1px solid var(--gray-100);">
+                    <td style="padding: 12px 16px;">
+                        <div style="font-weight: 500; font-size: 14px;">${escapeHtml(t.filename)}</div>
+                        <div class="text-muted" style="font-size: 12px; margin-top: 2px;">${escapeHtml(preview)}</div>
+                    </td>
+                    <td style="padding: 12px 16px; font-size: 14px;">${t.language || '-'}</td>
+                    <td style="padding: 12px 16px;">${statusBadge}</td>
+                    <td style="padding: 12px 16px; font-size: 14px; color: var(--gray-600);">${date}</td>
+                    <td style="padding: 12px 16px; text-align: right;">
+                        <div class="flex gap-2" style="justify-content: flex-end;">
+                            <button class="btn btn-outline btn-sm" onclick="viewTranscript('${t.id}')">View</button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteTranscript('${t.id}')">Delete</button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        // Auto-poll for processing transcripts
+        const hasProcessing = transcripts.some(t => t.status === 'processing');
+        if (hasProcessing && !pollInterval) {
+            pollInterval = setInterval(() => {
+                loadTranscripts();
+            }, 10000); // Poll every 10 seconds
+        } else if (!hasProcessing && pollInterval) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+        }
+    }
+
+    function updatePagination(data) {
+        document.getElementById('pagination-info').textContent =
+            `Showing page ${data.page} of ${data.total_pages} (${data.total} total)`;
+        document.getElementById('prev-page').disabled = data.page <= 1;
+        document.getElementById('next-page').disabled = data.page >= data.total_pages;
+    }
+
+    function changePage(delta) {
+        currentPage += delta;
+        if (currentPage < 1) currentPage = 1;
+        if (currentPage > totalPages) currentPage = totalPages;
+        loadTranscripts();
+    }
+
+    async function deleteTranscript(id) {
+        if (!confirm('Are you sure you want to delete this transcript?')) return;
+
+        try {
+            const response = await apiCall(`/history/${id}`, { method: 'DELETE' });
+            if (!response) return;
+            loadTranscripts();
+        } catch (error) {
+            alert('Failed to delete transcript');
+        }
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function viewTranscript(id) {
+        const token = getToken();
+        if (!token) {
+            window.location.href = '/auth/login';
+            return;
+        }
+        // Navigate to the transcript page with the token as a query parameter
+        window.location.href = `/history/${id}?token=${encodeURIComponent(token)}`;
+    }
+</script>
+{% endblock %}

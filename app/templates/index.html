@@ -1,0 +1,365 @@
+{% extends "base.html" %}
+
+{% block title %}Transcribe Audio{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-bottom: 24px;">
+    <div class="card-header flex items-center justify-between">
+        <h2>Upload Audio or Video for Transcription</h2>
+        <a href="/history/" class="btn btn-outline btn-sm">📋 View History</a>
+    </div>
+    <div class="card-body">
+        {% if demo_mode %}
+        <div class="alert alert-warning mb-4">
+            <strong>🔧 Demo Mode Active</strong><br>
+            No actual OCI API calls will be made. Upload any audio file to see a simulated transcription result.
+            Configure OCI credentials in <code>.env</code> and set <code>DEMO_MODE=false</code> for real transcription.
+        </div>
+        {% endif %}
+
+        <div id="upload-area" class="flex flex-col items-center justify-center"
+             style="border: 2px dashed var(--gray-300); border-radius: var(--radius); padding: 48px 24px;
+                    cursor: pointer; transition: all 0.2s ease; background: var(--gray-50);"
+             ondragover="event.preventDefault(); this.style.borderColor='var(--primary)'; this.style.background='var(--primary-light)'"
+             ondragleave="this.style.borderColor='var(--gray-300)'; this.style.background='var(--gray-50)'"
+             ondrop="event.preventDefault(); handleDrop(event)"
+             onclick="document.getElementById('file-input').click()">
+
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--gray-400)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+
+            <p style="margin-top: 16px; font-size: 16px; font-weight: 500; color: var(--gray-700);">
+                Drop your audio or video file here or click to browse
+            </p>
+            <p class="text-muted" style="margin-top: 8px;">
+                Audio: MP3, WAV, M4A, FLAC, OGG, AAC, WebM, AMR, Opus &bull;
+                Video: MP4, MOV, AVI, MKV, WMV, FLV, MPEG, 3GP (max 500 MB)
+            </p>
+            <input type="file" id="file-input" accept=".mp3,.wav,.m4a,.flac,.ogg,.aac,.webm,.amr,.opus,.mp4,.mov,.avi,.mkv,.wmv,.flv,.mpeg,.mpg,.3gp"
+                   style="display: none;" onchange="handleFileSelect(event)">
+        </div>
+
+        <div id="file-info" class="flex items-center justify-between" style="display: none; margin-top: 16px;
+                    padding: 12px 16px; background: var(--gray-50); border-radius: var(--radius); border: 1px solid var(--gray-200);">
+            <div class="flex items-center gap-2">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                </svg>
+                <div>
+                    <span id="file-name" style="font-weight: 500; font-size: 14px;"></span>
+                    <span id="file-size" class="text-muted" style="margin-left: 8px;"></span>
+                </div>
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="clearFile()">Remove</button>
+        </div>
+
+        <div class="form-group" style="margin-top: 16px;">
+            <label class="form-label" for="language">Language</label>
+            <select id="language" class="form-select">
+                {% for code, name in languages.items() %}
+                <option value="{{ code }}" {% if code == 'en-US' %}selected{% endif %}>{{ name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <button id="transcribe-btn" class="btn btn-primary" style="width: 100%; margin-top: 8px;" onclick="startTranscription()" disabled>
+            Start Transcription
+        </button>
+    </div>
+</div>
+
+<div id="result-area" style="display: none;">
+    <div class="card">
+        <div class="card-header flex items-center justify-between">
+            <h2>Transcription Result</h2>
+            <div id="status-badge" class="badge badge-info">Processing</div>
+        </div>
+        <div class="card-body">
+            <div id="processing-indicator" class="flex items-center justify-center" style="padding: 24px;">
+                <span class="loading-spinner" style="width: 32px; height: 32px; border-width: 3px;"></span>
+                <span style="margin-left: 12px; font-size: 16px; color: var(--gray-600);">Transcribing your audio...</span>
+            </div>
+
+            <div id="result-content" style="display: none;">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-2">
+                        <span id="result-confidence" class="badge badge-success"></span>
+                        <span id="result-duration" class="text-muted"></span>
+                        <span id="result-language" class="text-muted"></span>
+                    </div>
+                    <div class="flex gap-2">
+                        <button class="btn btn-outline btn-sm" onclick="copyText()">📋 Copy</button>
+                        <button class="btn btn-outline btn-sm" onclick="downloadTxt()">📄 Download TXT</button>
+                        <button class="btn btn-outline btn-sm" onclick="downloadSrt()">🎬 Download SRT</button>
+                    </div>
+                </div>
+
+                <!-- View Toggle (hidden by default, shown when speakers exist) -->
+                <div id="result-view-toggle" style="display: none; margin-bottom: 12px;">
+                    <button id="result-view-full" class="btn btn-primary btn-sm" onclick="showResultView('full')">Full Text</button>
+                    <button id="result-view-speakers" class="btn btn-outline btn-sm" onclick="showResultView('speakers')">Speaker View</button>
+                </div>
+
+                <!-- Full Text View -->
+                <div id="transcript-text" style="padding: 16px; background: var(--gray-50); border-radius: var(--radius);
+                            border: 1px solid var(--gray-200); font-size: 15px; line-height: 1.7; white-space: pre-wrap;
+                            max-height: 500px; overflow-y: auto;">
+                </div>
+
+                <!-- Speaker View (hidden by default) -->
+                <div id="transcript-speakers" style="display: none;"></div>
+            </div>
+
+            <div id="error-content" style="display: none;">
+                <div class="alert alert-danger">
+                    <strong>Transcription Failed</strong>
+                    <p id="error-message" style="margin-top: 8px;"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let selectedFile = null;
+    let currentTranscriptId = null;
+    let currentText = '';
+
+    function handleFileSelect(event) {
+        const file = event.target.files[0];
+        if (file) selectFile(file);
+    }
+
+    function handleDrop(event) {
+        const file = event.dataTransfer.files[0];
+        if (file) selectFile(file);
+    }
+
+    function selectFile(file) {
+        selectedFile = file;
+        document.getElementById('file-name').textContent = file.name;
+        document.getElementById('file-size').textContent = formatFileSize(file.size);
+        document.getElementById('file-info').style.display = 'flex';
+        document.getElementById('upload-area').style.display = 'none';
+        document.getElementById('transcribe-btn').disabled = false;
+        document.getElementById('result-area').style.display = 'none';
+    }
+
+    function clearFile() {
+        selectedFile = null;
+        document.getElementById('file-input').value = '';
+        document.getElementById('file-info').style.display = 'none';
+        document.getElementById('upload-area').style.display = 'flex';
+        document.getElementById('transcribe-btn').disabled = true;
+    }
+
+    function formatFileSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    let pollInterval = null;
+
+    async function startTranscription() {
+        if (!selectedFile) return;
+
+        const btn = document.getElementById('transcribe-btn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="loading-spinner"></span> Transcribing...';
+
+        document.getElementById('result-area').style.display = 'block';
+        document.getElementById('processing-indicator').style.display = 'flex';
+        document.getElementById('result-content').style.display = 'none';
+        document.getElementById('error-content').style.display = 'none';
+        document.getElementById('status-badge').textContent = 'Processing';
+        document.getElementById('status-badge').className = 'badge badge-info';
+
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        formData.append('language', document.getElementById('language').value);
+
+        try {
+            const response = await apiCall('/transcribe/upload', {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!response) return;
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Transcription failed');
+            }
+
+            currentTranscriptId = data.transcript_id;
+            displayResult(data);
+
+            // Start polling if still processing
+            if (data.status === 'processing' && currentTranscriptId) {
+                startPolling(currentTranscriptId);
+            }
+        } catch (error) {
+            document.getElementById('processing-indicator').style.display = 'none';
+            document.getElementById('error-content').style.display = 'block';
+            document.getElementById('error-message').textContent = error.message;
+            document.getElementById('status-badge').textContent = 'Failed';
+            document.getElementById('status-badge').className = 'badge badge-danger';
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = 'Start Transcription';
+        }
+    }
+
+    async function startPolling(transcriptId) {
+        if (pollInterval) clearInterval(pollInterval);
+        pollInterval = setInterval(async () => {
+            try {
+                const response = await apiCall(`/transcribe/status/${transcriptId}`);
+                if (!response) return;
+                const data = await response.json();
+                displayResult(data);
+                if (data.status !== 'processing') {
+                    clearInterval(pollInterval);
+                    pollInterval = null;
+                }
+            } catch (e) {
+                // Ignore polling errors
+            }
+        }, 5000);
+    }
+
+    function displayResult(data) {
+        document.getElementById('processing-indicator').style.display = 'none';
+        document.getElementById('result-content').style.display = 'block';
+
+        currentText = data.text || '';
+
+        if (data.status === 'completed') {
+            document.getElementById('status-badge').textContent = 'Completed';
+            document.getElementById('status-badge').className = 'badge badge-success';
+
+            if (data.confidence) {
+                const pct = (data.confidence * 100).toFixed(1);
+                document.getElementById('result-confidence').textContent = `Confidence: ${pct}%`;
+            }
+
+            if (data.duration_seconds) {
+                const mins = Math.floor(data.duration_seconds / 60);
+                const secs = Math.round(data.duration_seconds % 60);
+                document.getElementById('result-duration').textContent = `Duration: ${mins}m ${secs}s`;
+            }
+
+            const langName = document.getElementById('language').selectedOptions[0].text;
+            document.getElementById('result-language').textContent = `Language: ${langName}`;
+
+            document.getElementById('transcript-text').textContent = currentText;
+
+            // Handle speaker view
+            const speakers = data.speakers || [];
+            const speakersContainer = document.getElementById('transcript-speakers');
+            const viewToggle = document.getElementById('result-view-toggle');
+
+            if (speakers.length > 0) {
+                // Build speaker HTML
+                let speakersHtml = '';
+                const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+                speakers.forEach(function(s, i) {
+                    const speakerNum = s.speaker.replace('speaker_', '');
+                    const color = colors[speakerNum % colors.length];
+                    const timestamp = s.start_time ? formatTimestamp(s.start_time) + ' - ' + formatTimestamp(s.end_time) : '';
+                    speakersHtml += '<div style="padding: 12px 16px; margin-bottom: 8px; border-radius: var(--radius); ' +
+                        'border-left: 4px solid ' + color + '; ' +
+                        'background: var(--gray-50); border: 1px solid var(--gray-200); border-left-width: 4px;">' +
+                        '<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">' +
+                        '<div style="font-size: 12px; font-weight: 600; color: ' + color + '; ' +
+                        'text-transform: uppercase;">' +
+                        s.speaker.replace('_', ' ').replace(/\b\w/g, function(l) { return l.toUpperCase(); }) +
+                        '</div>' +
+                        (timestamp ? '<div style="font-size: 11px; color: var(--gray-500); font-family: monospace;">' + timestamp + '</div>' : '') +
+                        '</div>' +
+                        '<div style="font-size: 15px; line-height: 1.7;">' + escapeHtml(s.text) + '</div>' +
+                        '</div>';
+                });
+                speakersContainer.innerHTML = speakersHtml;
+                viewToggle.style.display = 'block';
+                showResultView('full');
+            } else {
+
+                speakersContainer.innerHTML = '';
+                viewToggle.style.display = 'none';
+            }
+        } else if (data.status === 'failed') {
+            document.getElementById('status-badge').textContent = 'Failed';
+            document.getElementById('status-badge').className = 'badge badge-danger';
+            document.getElementById('result-content').style.display = 'none';
+            document.getElementById('error-content').style.display = 'block';
+            document.getElementById('error-message').textContent = data.error || 'Transcription failed';
+        } else if (data.status === 'processing') {
+            document.getElementById('status-badge').textContent = 'Processing';
+            document.getElementById('status-badge').className = 'badge badge-info';
+            document.getElementById('processing-indicator').style.display = 'flex';
+            document.getElementById('result-content').style.display = 'none';
+        }
+    }
+
+    function showResultView(view) {
+        const fullEl = document.getElementById('transcript-text');
+        const speakersEl = document.getElementById('transcript-speakers');
+        const btnFull = document.getElementById('result-view-full');
+        const btnSpeakers = document.getElementById('result-view-speakers');
+
+        if (view === 'full') {
+            fullEl.style.display = 'block';
+            if (speakersEl) speakersEl.style.display = 'none';
+            btnFull.className = 'btn btn-primary btn-sm';
+            if (btnSpeakers) btnSpeakers.className = 'btn btn-outline btn-sm';
+        } else {
+            fullEl.style.display = 'none';
+            if (speakersEl) speakersEl.style.display = 'block';
+            btnFull.className = 'btn btn-outline btn-sm';
+            if (btnSpeakers) btnSpeakers.className = 'btn btn-primary btn-sm';
+        }
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function formatTimestamp(ts) {
+        // OCI timestamps look like "143.400s" or "0.000s"
+        // Convert to mm:ss format
+        const seconds = parseFloat(ts.replace('s', ''));
+        if (isNaN(seconds)) return ts;
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+    }
+
+    function copyText() {
+        if (currentText) {
+            navigator.clipboard.writeText(currentText).then(() => {
+                alert('Text copied to clipboard!');
+            });
+        }
+    }
+
+    function downloadTxt() {
+        if (!currentText || !currentTranscriptId) return;
+        const token = getToken();
+        window.open(`/history/${currentTranscriptId}/download?format=txt&token=${encodeURIComponent(token || '')}`, '_blank');
+    }
+
+    function downloadSrt() {
+        if (!currentText || !currentTranscriptId) return;
+        const token = getToken();
+        window.open(`/history/${currentTranscriptId}/download?format=srt&token=${encodeURIComponent(token || '')}`, '_blank');
+    }
+</script>
+{% endblock %}
