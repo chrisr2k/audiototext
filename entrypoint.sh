@@ -29,49 +29,46 @@ if [[ "$DATABASE_URL" == postgresql* ]]; then
     done
 fi
 
-# Initialize database tables
-echo "Initializing database..."
+# Initialize database and create admin user in a single Python process
+echo "Initializing database and creating admin user..."
 python -c "
-from app.database import init_db
-init_db()
-print('Database tables created successfully')
-"
-
-# Create admin user if env vars are set
-if [[ -n "$ADMIN_EMAIL" && -n "$ADMIN_USERNAME" && -n "$ADMIN_PASSWORD" ]]; then
-    echo "Creating admin user..."
-    python -c "
 import os
-from app.database import SessionLocal
+from app.database import init_db, SessionLocal
 from app.models import User
 from app.auth import hash_password
 
-db = SessionLocal()
-try:
-    admin_email = os.environ.get('ADMIN_EMAIL', '')
-    admin_username = os.environ.get('ADMIN_USERNAME', '')
-    admin_password = os.environ.get('ADMIN_PASSWORD', '')
-    
-    existing = db.query(User).filter(
-        (User.username == admin_username) | (User.email == admin_email)
-    ).first()
-    if existing:
-        existing.is_admin = True
-        print(f'Admin privileges granted to existing user: {existing.username}')
-    else:
-        user = User(
-            email=admin_email,
-            username=admin_username,
-            hashed_password=hash_password(admin_password),
-            is_admin=True,
-        )
-        db.add(user)
-        print(f'Admin user created: {user.username}')
-    db.commit()
-finally:
-    db.close()
+# First, create all tables
+init_db()
+print('Database tables created successfully')
+
+# Then create admin user if env vars are set
+admin_email = os.environ.get('ADMIN_EMAIL', '')
+admin_username = os.environ.get('ADMIN_USERNAME', '')
+admin_password = os.environ.get('ADMIN_PASSWORD', '')
+
+if admin_email and admin_username and admin_password:
+    db = SessionLocal()
+    try:
+        existing = db.query(User).filter(
+            (User.username == admin_username) | (User.email == admin_email)
+        ).first()
+        if existing:
+            existing.is_admin = True
+            print(f'Admin privileges granted to existing user: {existing.username}')
+        else:
+            user = User(
+                email=admin_email,
+                username=admin_username,
+                hashed_password=hash_password(admin_password),
+                is_admin=True,
+            )
+            db.add(user)
+            print(f'Admin user created: {user.username}')
+        db.commit()
+    finally:
+        db.close()
 "
-fi
+
 
 # Start the application
 echo "Starting uvicorn server..."
