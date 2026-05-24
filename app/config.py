@@ -64,9 +64,12 @@ class Settings:
     }
 
     def __init__(self):
-        # If OCI_PRIVATE_KEY is provided as env var (for Docker), write to temp file
-        if self._OCI_PRIVATE_KEY and not self.OCI_PRIVATE_KEY_PATH:
-            # Write the key to a temporary file
+        # Determine the private key path:
+        # 1. If OCI_PRIVATE_KEY is set (inline PEM content), write it to a temp file
+        # 2. If OCI_PRIVATE_KEY_PATH is set and the file exists, use it directly
+        # 3. If OCI_PRIVATE_KEY_PATH is set but file doesn't exist, try OCI_PRIVATE_KEY as fallback
+        if self._OCI_PRIVATE_KEY:
+            # Write the key to a temporary file (always, in case path is stale)
             tmp_dir = Path(tempfile.gettempdir()) / "oci_keys"
             tmp_dir.mkdir(parents=True, exist_ok=True)
             key_file = tmp_dir / "oci_api_key.pem"
@@ -74,6 +77,11 @@ class Settings:
             key_file.chmod(0o600)
             self.OCI_PRIVATE_KEY_PATH = str(key_file)
             print(f"OCI private key written to {key_file}")
+        elif self.OCI_PRIVATE_KEY_PATH:
+            key_path = Path(self.OCI_PRIVATE_KEY_PATH)
+            if not key_path.exists():
+                print(f"WARNING: OCI_PRIVATE_KEY_PATH '{self.OCI_PRIVATE_KEY_PATH}' does not exist. "
+                      "Set OCI_PRIVATE_KEY env var with the PEM content instead.")
 
 
 settings = Settings()

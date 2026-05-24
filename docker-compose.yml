@@ -53,7 +53,10 @@ services:
       OCI_USER_OCID: ${OCI_USER_OCID:-}
       OCI_TENANCY_OCID: ${OCI_TENANCY_OCID:-}
       OCI_FINGERPRINT: ${OCI_FINGERPRINT:-}
+      # For Docker: set OCI_PRIVATE_KEY with the full PEM content (single line with \n)
+      # For local dev: set OCI_PRIVATE_KEY_PATH pointing to the .pem file
       OCI_PRIVATE_KEY: ${OCI_PRIVATE_KEY:-}
+      OCI_PRIVATE_KEY_PATH: ${OCI_PRIVATE_KEY_PATH:-}
       OCI_REGION: ${OCI_REGION:-us-ashburn-1}
       OCI_NAMESPACE: ${OCI_NAMESPACE:-}
       OCI_BUCKET: ${OCI_BUCKET:-}
