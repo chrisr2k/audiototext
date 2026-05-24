@@ -4,8 +4,8 @@ from datetime import datetime, timezone
 import json
 
 from sqlalchemy import Column, String, Text, DateTime, ForeignKey, Integer, Float, Boolean
-from sqlalchemy.dialects.sqlite import JSON as SQLiteJSON
 from sqlalchemy.orm import relationship
+
 
 from app.database import Base
 

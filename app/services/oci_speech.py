@@ -520,7 +520,7 @@ def transcribe_audio(audio_path: str, language: str = "en-US") -> dict:
         completed_job = _wait_for_job_completion(client, job_id, timeout=1800)
 
         # Download results
-        text = _download_transcription_results(completed_job)
+        download_result = _download_transcription_results(completed_job)
 
         # Get file size for duration estimation
         file_size = os.path.getsize(audio_path) if os.path.exists(audio_path) else 0
@@ -529,12 +529,14 @@ def transcribe_audio(audio_path: str, language: str = "en-US") -> dict:
         return {
             "job_id": job_id,
             "status": "COMPLETED",
-            "text": text,
+            "text": download_result.get("text", ""),
+            "speakers": download_result.get("speakers", []),
             "confidence": None,
             "duration_seconds": duration,
             "language": language,
             "is_demo": False,
         }
+
 
     except Exception as e:
         raise RuntimeError(f"OCI Speech transcription failed: {str(e)}")

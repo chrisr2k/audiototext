@@ -10,25 +10,26 @@ from sqlalchemy.orm import sessionmaker, DeclarativeBase
 from app.config import settings
 
 
-def _get_engine_args():
-    """Get engine connection args based on database type."""
+def _get_engine_kwargs():
+    """Get engine kwargs based on database type."""
+    kwargs = {}
     if "sqlite" in settings.DATABASE_URL:
-        return {"check_same_thread": False}
+        kwargs["connect_args"] = {"check_same_thread": False}
     elif "postgresql" in settings.DATABASE_URL:
         # PostgreSQL connection pool settings for production
-        return {
-            "pool_size": 10,
-            "max_overflow": 20,
-            "pool_pre_ping": True,
-            "pool_recycle": 3600,
-        }
-    return {}
+        kwargs["pool_size"] = 10
+        kwargs["max_overflow"] = 20
+        kwargs["pool_pre_ping"] = True
+        kwargs["pool_recycle"] = 3600
+    return kwargs
 
 
 engine = create_engine(
     settings.DATABASE_URL,
-    connect_args=_get_engine_args(),
+    **_get_engine_kwargs(),
 )
+
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 

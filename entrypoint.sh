@@ -19,7 +19,8 @@ if [[ "$DATABASE_URL" == postgresql* ]]; then
 
     echo "  Host: $DB_HOST, Port: $DB_PORT"
     for i in $(seq 1 30); do
-        if nc -z "$DB_HOST" "$DB_PORT" 2>/dev/null; then
+        # Use python to check TCP connection (nc may not be available)
+        if python -c "import socket; s=socket.socket(); s.settimeout(2); s.connect(('$DB_HOST', $DB_PORT)); s.close()" 2>/dev/null; then
             echo "  Database is ready!"
             break
         fi
@@ -40,23 +41,28 @@ print('Database tables created successfully')
 if [[ -n "$ADMIN_EMAIL" && -n "$ADMIN_USERNAME" && -n "$ADMIN_PASSWORD" ]]; then
     echo "Creating admin user..."
     python -c "
+import os
 from app.database import SessionLocal
 from app.models import User
 from app.auth import hash_password
 
 db = SessionLocal()
 try:
+    admin_email = os.environ.get('ADMIN_EMAIL', '')
+    admin_username = os.environ.get('ADMIN_USERNAME', '')
+    admin_password = os.environ.get('ADMIN_PASSWORD', '')
+    
     existing = db.query(User).filter(
-        (User.username == '$ADMIN_USERNAME') | (User.email == '$ADMIN_EMAIL')
+        (User.username == admin_username) | (User.email == admin_email)
     ).first()
     if existing:
         existing.is_admin = True
         print(f'Admin privileges granted to existing user: {existing.username}')
     else:
         user = User(
-            email='$ADMIN_EMAIL',
-            username='$ADMIN_USERNAME',
-            hashed_password=hash_password('$ADMIN_PASSWORD'),
+            email=admin_email,
+            username=admin_username,
+            hashed_password=hash_password(admin_password),
             is_admin=True,
         )
         db.add(user)
