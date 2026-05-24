@@ -70,10 +70,15 @@ class Settings:
         # 3. If OCI_PRIVATE_KEY_PATH is set but file doesn't exist, try OCI_PRIVATE_KEY as fallback
         if self._OCI_PRIVATE_KEY:
             # Write the key to a temporary file (always, in case path is stale)
+            # Handle both literal \n (from .env files) and actual newlines
+            key_content = self._OCI_PRIVATE_KEY
+            if "\\n" in key_content:
+                # Replace literal \n with actual newlines
+                key_content = key_content.replace("\\n", "\n")
             tmp_dir = Path(tempfile.gettempdir()) / "oci_keys"
             tmp_dir.mkdir(parents=True, exist_ok=True)
             key_file = tmp_dir / "oci_api_key.pem"
-            key_file.write_text(self._OCI_PRIVATE_KEY)
+            key_file.write_text(key_content)
             key_file.chmod(0o600)
             self.OCI_PRIVATE_KEY_PATH = str(key_file)
             print(f"OCI private key written to {key_file}")
