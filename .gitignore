@@ -42,3 +42,6 @@ login.json
 
 # Docker
 .dockerignore
+
+# Generated nginx config (created by start.sh)
+nginx.active.conf
