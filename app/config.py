@@ -33,6 +33,13 @@ class Settings:
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./audiototext.db")
     DEMO_MODE: bool = os.getenv("DEMO_MODE", "true").lower() == "true"
 
+    # CORS - comma-separated list of allowed origins (default: your domain)
+    CORS_ORIGINS: list = [
+        o.strip()
+        for o in os.getenv("CORS_ORIGINS", "https://transcribe.chrisreinke.com").split(",")
+        if o.strip()
+    ]
+
     # Upload settings
     UPLOAD_DIR: str = os.path.join(
         os.path.dirname(os.path.dirname(__file__)), "uploads"

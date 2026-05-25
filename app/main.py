@@ -22,10 +22,10 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# CORS middleware - restrict to your domain
+# CORS middleware - restrict to allowed origins (set via CORS_ORIGINS env var)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://transcribe.chrisreinke.com"],
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
