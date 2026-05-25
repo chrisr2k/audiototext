@@ -22,10 +22,10 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# CORS middleware
+# CORS middleware - restrict to your domain
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["https://transcribe.chrisreinke.com"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -57,16 +57,7 @@ async def root(request: Request):
 @app.get("/health")
 async def health():
     """Health check endpoint."""
-    return {
-        "status": "healthy",
-        "demo_mode": settings.DEMO_MODE,
-        "oci_configured": bool(
-            settings.OCI_USER_OCID
-            and settings.OCI_TENANCY_OCID
-            and settings.OCI_FINGERPRINT
-            and settings.OCI_PRIVATE_KEY_PATH
-        ),
-    }
+    return {"status": "healthy"}
 
 
 if __name__ == "__main__":
