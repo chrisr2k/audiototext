@@ -371,18 +371,18 @@
             AudioToText
         </a>
         <div class="navbar-nav">
+            {% if user %}
             <a href="/transcribe/" class="nav-link {% if request.url.path == '/transcribe/' %}active{% endif %}">
                 Transcribe
             </a>
             <a href="/history/" class="nav-link {% if request.url.path == '/history/' %}active{% endif %}">
                 History
             </a>
-            {% if user and user.is_admin %}
+            {% if user.is_admin %}
             <a href="/admin/users" class="nav-link {% if request.url.path == '/admin/users' %}active{% endif %}">
                 👑 Admin
             </a>
             {% endif %}
-            {% if user %}
             <div class="user-info">
                 <div class="user-avatar">{{ user.username[0]|upper }}</div>
                 <span class="user-name">{{ user.username }}</span>
