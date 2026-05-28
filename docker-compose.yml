@@ -107,7 +107,7 @@ services:
     profiles:
       - letsencrypt
     volumes:
-      - letsencrypt_etc:/etc/letsencrypt
+      - /etc/letsencrypt:/etc/letsencrypt
       - acme_challenge:/var/www/html
     entrypoint: |
       sh -c "
@@ -131,7 +131,7 @@ services:
     profiles:
       - letsencrypt
     volumes:
-      - letsencrypt_etc:/etc/letsencrypt
+      - /etc/letsencrypt:/etc/letsencrypt
       - acme_challenge:/var/www/html
     entrypoint: |
       sh -c "
@@ -157,7 +157,8 @@ services:
       # Self-signed certs (used when LETS_ENCRYPT_ENABLED=false)
       - ssl_certs:/etc/nginx/ssl:ro
       # Let's Encrypt certs (used when LETS_ENCRYPT_ENABLED=true)
-      - letsencrypt_etc:/etc/letsencrypt:ro
+      # Uses host bind mount so certs persist on the host filesystem
+      - /etc/letsencrypt:/etc/letsencrypt:ro
       # ACME challenge directory
       - acme_challenge:/var/www/html
       # Logs
@@ -175,8 +176,6 @@ volumes:
   uploads_data:
     driver: local
   ssl_certs:
-    driver: local
-  letsencrypt_etc:
     driver: local
   nginx_logs:
     driver: local
