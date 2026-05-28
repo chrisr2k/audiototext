@@ -5,6 +5,11 @@
 # This script reads the .env file and starts the appropriate
 # Docker Compose services based on LETS_ENCRYPT_ENABLED.
 #
+# The nginx container auto-detects which SSL config to use:
+#   - If DOMAIN_NAME is set and LE certs exist at
+#     /etc/letsencrypt/live/<DOMAIN_NAME>/, it uses Let's Encrypt.
+#   - Otherwise, it falls back to self-signed certs.
+#
 # Usage:
 #   ./start.sh              # Start with self-signed certs (default)
 #   LETS_ENCRYPT_ENABLED=true ./start.sh  # Start with Let's Encrypt
@@ -22,15 +27,6 @@ if [ -f .env ]; then
     set +a
 fi
 
-# Ensure nginx.active.conf exists before Docker tries to mount it.
-# Docker will create a directory instead of a file if the file doesn't exist,
-# causing: "mount ... to etc/nginx/nginx.conf: Not a directory"
-if [ ! -f nginx.active.conf ]; then
-    cp nginx.conf nginx.active.conf
-    echo "Created default nginx.active.conf (self-signed config)"
-fi
-
-# Determine which nginx config to use
 if [ "${LETS_ENCRYPT_ENABLED:-false}" = "true" ]; then
     echo "============================================"
     echo "  Starting with Let's Encrypt SSL"
@@ -43,25 +39,22 @@ if [ "${LETS_ENCRYPT_ENABLED:-false}" = "true" ]; then
         exit 1
     fi
 
-    # Generate nginx config with domain name substituted
-    sed "s/\${DOMAIN_NAME}/$DOMAIN_NAME/g" nginx.letsencrypt.conf > nginx.active.conf
-
-    # Start with Let's Encrypt profile
+    # Start with Let's Encrypt profile (certbot-init + certbot-renew + nginx)
     docker compose --profile letsencrypt up -d
 
     echo ""
     echo "Let's Encrypt certificates will be obtained automatically."
     echo "Ensure port 80 is accessible from the internet for ACME challenges."
+    echo ""
+    echo "The nginx container will auto-detect the LE certs and switch to"
+    echo "the Let's Encrypt SSL config once certbot obtains them."
 else
     echo "============================================"
     echo "  Starting with self-signed SSL certificate"
     echo "============================================"
     echo ""
 
-    # Use the default nginx config
-    cp nginx.conf nginx.active.conf
-
-    # Start with self-signed profile
+    # Start with self-signed profile (ssl-init + nginx)
     docker compose --profile selfsigned up -d
 
     echo ""

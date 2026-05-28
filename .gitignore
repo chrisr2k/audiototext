@@ -43,5 +43,5 @@ login.json
 # Docker
 .dockerignore
 
-# nginx.active.conf is committed as the default self-signed config.
-# start.sh overwrites it when switching to Let's Encrypt.
+# nginx.active.conf is no longer used.
+# The nginx container now auto-detects SSL config at startup via nginx-entrypoint.sh.
