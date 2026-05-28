@@ -22,7 +22,15 @@ if [ -f .env ]; then
     set +a
 fi
 
-# Determine which nginx config and volumes to use
+# Ensure nginx.active.conf exists before Docker tries to mount it.
+# Docker will create a directory instead of a file if the file doesn't exist,
+# causing: "mount ... to etc/nginx/nginx.conf: Not a directory"
+if [ ! -f nginx.active.conf ]; then
+    cp nginx.conf nginx.active.conf
+    echo "Created default nginx.active.conf (self-signed config)"
+fi
+
+# Determine which nginx config to use
 if [ "${LETS_ENCRYPT_ENABLED:-false}" = "true" ]; then
     echo "============================================"
     echo "  Starting with Let's Encrypt SSL"

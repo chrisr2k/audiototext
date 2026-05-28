@@ -43,5 +43,5 @@ login.json
 # Docker
 .dockerignore
 
-# Generated nginx config (created by start.sh)
-nginx.active.conf
+# nginx.active.conf is committed as the default self-signed config.
+# start.sh overwrites it when switching to Let's Encrypt.
