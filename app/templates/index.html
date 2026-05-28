@@ -91,10 +91,12 @@
                         <span id="result-duration" class="text-muted"></span>
                         <span id="result-language" class="text-muted"></span>
                     </div>
-                    <div class="flex gap-2">
+                    <div class="flex gap-2" style="flex-wrap: wrap;">
                         <button class="btn btn-outline btn-sm" onclick="copyText()">📋 Copy</button>
-                        <button class="btn btn-outline btn-sm" onclick="downloadTxt()">📄 Download TXT</button>
-                        <button class="btn btn-outline btn-sm" onclick="downloadSrt()">🎬 Download SRT</button>
+                        <button class="btn btn-outline btn-sm" onclick="downloadTxt()">📄 TXT</button>
+                        <button class="btn btn-outline btn-sm" onclick="downloadSrt()">🎬 SRT</button>
+                        <button class="btn btn-outline btn-sm" onclick="downloadPdf('pdf_speaker')">🎤 Speaker PDF</button>
+                        <button class="btn btn-outline btn-sm" onclick="downloadPdf('pdf_timed')">⏱️ Timed PDF</button>
                     </div>
                 </div>
 
@@ -360,6 +362,12 @@
         if (!currentText || !currentTranscriptId) return;
         const token = getToken();
         window.open(`/history/${currentTranscriptId}/download?format=srt&token=${encodeURIComponent(token || '')}`, '_blank');
+    }
+
+    function downloadPdf(format) {
+        if (!currentTranscriptId) return;
+        const token = getToken();
+        window.open(`/history/${currentTranscriptId}/download?format=${format}&token=${encodeURIComponent(token || '')}`, '_blank');
     }
 </script>
 {% endblock %}
